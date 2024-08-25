@@ -54,11 +54,11 @@ class PositionEmbedding(nn.Module):
         position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
 
         # Divisor term for positional encoding
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        divider_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         # Apply sine to even indices and cosine to odd indices
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
+        pe[:, 0::2] = torch.sin(position * divider_term)
+        pe[:, 1::2] = torch.cos(position * divider_term)
 
         # Add an extra dimension for batch size and register as a buffer
         pe = pe.unsqueeze(0)
