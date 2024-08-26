@@ -155,3 +155,31 @@ class MultiHeadAttention(nn.Module):
 
         # Apply the final linear transformation
         return self.w_o(x)
+
+
+class ResidualConnection(nn.Module):
+    def __init__(self, dropout: float) -> None:
+        """
+        Initialize the ResidualConnection module.
+
+        Parameters:
+        dropout (float): The dropout rate applied after the sublayer.
+        """
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.norm = LayerNormalization()  # Apply Layer Normalization
+
+    def forward(self, x: torch.Tensor, sublayer: nn.Module) -> torch.Tensor:
+        """
+        Forward pass through the ResidualConnection module.
+
+        Parameters:
+        x (torch.Tensor): Input tensor of shape (batch_size, seq_le˚n, d_model).
+        sublayer (nn.Module): The sublayer to which the residual connection is applied.
+
+        Returns:
+        torch.Tensor: Output tensor after applying the residual connection.
+        """
+        # Apply layer normalization to the input, pass it through the sublayer,
+        # apply dropout, and add the original input (residual connection).
+        return x + self.dropout(sublayer(self.norm(x)))
