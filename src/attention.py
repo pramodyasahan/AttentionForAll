@@ -64,3 +64,94 @@ class FeedForward(nn.Module):
         x = self.dropout(x)  # Apply dropout
         x = self.fc2(x)  # Apply the second linear layer
         return x
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model: int, heads: int, dropout: float) -> None:
+        """
+        Initialize the MultiHeadAttention module.
+
+        Parameters:
+        d_model (int): Dimensionality of the model (input and output dimensions).
+        heads (int): Number of attention heads.
+        dropout (float): Dropout rate to apply after the attention scores.
+        """
+        super().__init__()
+        assert d_model % heads == 0, "d_model must be divisible by heads"
+        self.d_model = d_model
+        self.heads = heads
+        self.d_k = d_model // heads  # Dimensionality of each head
+
+        # Define linear layers for query, key, and value projections
+        self.w_q = nn.Linear(d_model, d_model)
+        self.w_k = nn.Linear(d_model, d_model)
+        self.w_v = nn.Linear(d_model, d_model)
+
+        # Output linear layer
+        self.w_o = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def attention(self, query, key, value, mask=None):
+        """
+        Compute the scaled dot-product attention.
+
+        Parameters:
+        query (torch.Tensor): Query tensor of shape (batch_size, heads, seq_len, d_k).
+        key (torch.Tensor): Key tensor of shape (batch_size, heads, seq_len, d_k).
+        value (torch.Tensor): Value tensor of shape (batch_size, heads, seq_len, d_k).
+        mask (torch.Tensor): Optional mask tensor to apply (shape should be broadcastable).
+        dropout (nn.Dropout): Optional dropout layer to apply after softmax.
+
+        Returns:
+        torch.Tensor: The output of the attention mechanism.
+        torch.Tensor: The attention scores (useful for analysis or visualization).
+        """
+        d_k = query.shape[-1]
+        # Scaled dot-product attention
+        attention_scores = (query @ key.transpose(-2, -1)) / math.sqrt(d_k)
+
+        # Apply the mask (if any)
+        if mask is not None:
+            attention_scores = attention_scores.masked_fill(mask == 0, -1e9)
+
+        # Softmax to get attention weights
+        attention_scores = attention_scores.softmax(dim=-1)
+
+        # Apply dropout to attention weights
+        if self.dropout is not None:
+            attention_scores = self.dropout(attention_scores)
+
+        # Multiply attention weights by values
+        return (attention_scores @ value), attention_scores
+
+    def forward(self, q, k, v, mask=None) -> torch.Tensor:
+        """
+        Forward pass through the MultiHeadAttention module.
+
+        Parameters:
+        q (torch.Tensor): Query tensor of shape (batch_size, seq_len, d_model).
+        k (torch.Tensor): Key tensor of shape (batch_size, seq_len, d_model).
+        v (torch.Tensor): Value tensor of shape (batch_size, seq_len, d_model).
+        mask (torch.Tensor): Optional mask tensor.
+
+        Returns:
+        torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
+        """
+        # Project input vectors to query, key, and value vectors
+        query = self.w_q(q)
+        key = self.w_k(k)
+        value = self.w_v(v)
+
+        # Reshape and transpose for multi-head attention
+        query = query.view(query.shape[0], query.shape[1], self.heads, self.d_k).transpose(1, 2)
+        key = key.view(key.shape[0], key.shape[1], self.heads, self.d_k).transpose(1, 2)
+        value = value.view(value.shape[0], value.shape[1], self.heads, self.d_k).transpose(1, 2)
+
+        # Compute attention and apply to values
+        x, self.attention_scores = self.attention(query, key, value, mask)
+
+        # Reshape the output back to (batch_size, seq_len, d_model)
+        x = x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.heads * self.d_k)
+
+        # Apply the final linear transformation
+        return self.w_o(x)
