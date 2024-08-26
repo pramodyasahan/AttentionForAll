@@ -33,3 +33,34 @@ class LayerNormalization(nn.Module):
 
         # Normalize the input tensor and apply the learnable parameters
         return self.alpha * (x - mean) / (std + self.eps) + self.beta
+
+
+class FeedForward(nn.Module):
+    def __init__(self, d_model: int, d_ff: int, dropout: float):
+        """
+        Initialize the FeedForward module.
+
+        Parameters:
+        d_model (int): The dimensionality of the input and output.
+        d_ff (int): The dimensionality of the intermediate layer.
+        dropout (float): The dropout rate to apply after the first linear transformation.
+        """
+        super().__init__()
+        self.fc1 = nn.Linear(d_model, d_ff)  # First fully connected layer
+        self.dropout = nn.Dropout(dropout)  # Dropout layer
+        self.fc2 = nn.Linear(d_ff, d_model)  # Second fully connected layer
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the FeedForward network.
+
+        Parameters:
+        x (torch.Tensor): Input tensor of shape (batch_size, seq_len, d_model).
+
+        Returns:
+        torch.Tensor: Output tensor of the same shape as input.
+        """
+        x = torch.relu(self.fc1(x))  # Apply ReLU activation after the first linear layer
+        x = self.dropout(x)  # Apply dropout
+        x = self.fc2(x)  # Apply the second linear layer
+        return x
